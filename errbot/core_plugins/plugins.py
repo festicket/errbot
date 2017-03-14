@@ -86,7 +86,7 @@ class Plugins(BotPlugin):
             if from_index is not None:
                 description = '\n'.join(('%s: %s' % (plug.name, plug.documentation) for plug in from_index))
             else:
-                description = 'No description.'
+                description = self._bot.repo_manager.describe_repo(repo_name)
 
             # installed, public, name, desc
             repos['repos'].append((installed, from_index is not None, repo_name, description))
@@ -113,8 +113,11 @@ class Plugins(BotPlugin):
         """
         if 'all' in args:
             results = self._bot.repo_manager.update_all_repos()
-        else:
+        elif args:
             results = self._bot.repo_manager.update_repos(args)
+        else:
+            yield 'Use !repos update all or !repos update repo_name repo_name'
+            return
 
         yield "Start updating ... "
 

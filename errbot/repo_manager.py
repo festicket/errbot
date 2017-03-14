@@ -181,8 +181,7 @@ class BotRepoManager(StoreMixin):
             human_name = repo
             repo_url = next(iter(self[REPO_INDEX][repo].values()))['repo']
         elif not repo.endswith('tar.gz'):
-            # This is a repo url, make up a plugin definition for it
-            human_name = human_name_for_git_url(repo)
+            human_name = None
             repo_url = repo
         else:
             repo_url = repo
@@ -200,14 +199,31 @@ class BotRepoManager(StoreMixin):
             s = repo_url.split(':')[-1].split('/')[-1]
             human_name = s[:-len('.tar.gz')]
         else:
-            repo_url, branch_name = repo_url.rsplit('@', 1)
+            repo_remote_url, branch_name = repo_url.rsplit('@', 1)
 
-            human_name = human_name or human_name_for_git_url(repo_url)
-            subprocess.check_call([git_path, 'clone', '-b', branch_name, repo_url, human_name], cwd=self.plugin_dir,
-                                  stderr=subprocess.STDOUT)
+            human_name = human_name or human_name_for_git_url(repo_remote_url)
+            target_directory = os.path.join(self.plugin_dir, human_name)
+            # if we already have that repo, just move to the correct branch
+            if os.path.exists(os.path.join(target_directory, '.git')):
+                subprocess.check_call([git_path, 'fetch', 'origin', '--no-tags'],
+                                      cwd=target_directory)
+                subprocess.check_call([git_path, 'checkout', '-f', '-B', branch_name, '--track', 'origin/{}'.format(branch_name)],
+                                      cwd=target_directory)
+            else:
+                subprocess.check_call([git_path, 'clone', '-b', branch_name, repo_remote_url, human_name], cwd=self.plugin_dir)
 
         self.add_plugin_repo(human_name, repo_url)
         return os.path.join(self.plugin_dir, human_name)
+
+    def describe_repo(self, repo_name):
+        repo_path = os.path.join(self.plugin_dir, repo_name)
+        branch_name = subprocess.check_output(['git', 'symbolic-ref', '--short', 'HEAD'],
+                                              cwd=repo_path,
+                                              universal_newlines=True).rstrip()
+        commit_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
+                                             cwd=repo_path,
+                                             universal_newlines=True).rstrip()
+        return '{} ({})'.format(branch_name, commit_sha)
 
     def update_repos(self, repos):
         """
