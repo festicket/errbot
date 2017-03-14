@@ -200,13 +200,11 @@ class BotRepoManager(StoreMixin):
             s = repo_url.split(':')[-1].split('/')[-1]
             human_name = s[:-len('.tar.gz')]
         else:
+            repo_url, branch_name = repo_url.rsplit('@', 1)
+
             human_name = human_name or human_name_for_git_url(repo_url)
-            p = subprocess.Popen([git_path, 'clone', repo_url, human_name], cwd=self.plugin_dir, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
-            feedback = p.stdout.read().decode('utf-8')
-            error_feedback = p.stderr.read().decode('utf-8')
-            if p.wait():
-                raise RepoException("Could not load this plugin: \n\n%s\n\n---\n\n%s" % (feedback, error_feedback))
+            subprocess.check_call([git_path, 'clone', '-b', branch_name, repo_url, human_name], cwd=self.plugin_dir,
+                                  stderr=subprocess.STDOUT)
 
         self.add_plugin_repo(human_name, repo_url)
         return os.path.join(self.plugin_dir, human_name)
@@ -225,15 +223,13 @@ class BotRepoManager(StoreMixin):
         names = set(self.get_installed_plugin_repos().keys()).intersection(set(repos))
 
         for d in (path.join(self.plugin_dir, name) for name in names):
-            p = subprocess.Popen([git_path, 'pull'], cwd=d, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            feedback = p.stdout.read().decode('utf-8') + '\n' + '-' * 50 + '\n'
-            err = p.stderr.read().strip().decode('utf-8')
-            if err:
-                feedback += err + '\n' + '-' * 50 + '\n'
+            subprocess.check_call([git_path, 'fetch', 'origin', '--no-tags'], cwd=d, stderr=subprocess.STDOUT)
+            subprocess.check_call([git_path, 'reset', '--hard', '@{upstream}'], cwd=d, stderr=subprocess.STDOUT)
+            feedback = ''
             dep_err, missing_pkgs = check_dependencies(d)
             if dep_err:
                 feedback += dep_err + '\n'
-            yield d, not p.wait(), feedback
+            yield d, True, feedback
 
     def update_all_repos(self):
         return self.update_repos(self.get_installed_plugin_repos().keys())
