@@ -201,8 +201,7 @@ class BotRepoManager(StoreMixin):
             human_name = repo
             repo_url = next(iter(self[REPO_INDEX][repo].values()))['repo']
         elif not repo.endswith('tar.gz'):
-            # This is a repo url, make up a plugin definition for it
-            human_name = human_name_for_git_url(repo)
+            human_name = None
             repo_url = repo
         else:
             repo_url = repo
@@ -220,16 +219,31 @@ class BotRepoManager(StoreMixin):
             s = repo_url.split(':')[-1].split('/')[-1]
             human_name = s[:-len('.tar.gz')]
         else:
-            human_name = human_name or human_name_for_git_url(repo_url)
-            p = subprocess.Popen([git_path, 'clone', repo_url, human_name], cwd=self.plugin_dir, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
-            feedback = p.stdout.read().decode('utf-8')
-            error_feedback = p.stderr.read().decode('utf-8')
-            if p.wait():
-                raise RepoException("Could not load this plugin: \n\n%s\n\n---\n\n%s" % (feedback, error_feedback))
+            repo_remote_url, branch_name = repo_url.rsplit('@', 1)
+
+            human_name = human_name or human_name_for_git_url(repo_remote_url)
+            target_directory = os.path.join(self.plugin_dir, human_name)
+            # if we already have that repo, just move to the correct branch
+            if os.path.exists(os.path.join(target_directory, '.git')):
+                subprocess.check_call([git_path, 'fetch', 'origin', '--no-tags'],
+                                      cwd=target_directory)
+                subprocess.check_call([git_path, 'checkout', '-f', '-B', branch_name, '--track', 'origin/{}'.format(branch_name)],
+                                      cwd=target_directory)
+            else:
+                subprocess.check_call([git_path, 'clone', '-b', branch_name, repo_remote_url, human_name], cwd=self.plugin_dir)
 
         self.add_plugin_repo(human_name, repo_url)
         return os.path.join(self.plugin_dir, human_name)
+
+    def describe_repo(self, repo_name):
+        repo_path = os.path.join(self.plugin_dir, repo_name)
+        branch_name = subprocess.check_output(['git', 'symbolic-ref', '--short', 'HEAD'],
+                                              cwd=repo_path,
+                                              universal_newlines=True).rstrip()
+        commit_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
+                                             cwd=repo_path,
+                                             universal_newlines=True).rstrip()
+        return '{} ({})'.format(branch_name, commit_sha)
 
     def update_repos(self, repos):
         """
@@ -245,15 +259,13 @@ class BotRepoManager(StoreMixin):
         names = set(self.get_installed_plugin_repos().keys()).intersection(set(repos))
 
         for d in (path.join(self.plugin_dir, name) for name in names):
-            p = subprocess.Popen([git_path, 'pull'], cwd=d, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            feedback = p.stdout.read().decode('utf-8') + '\n' + '-' * 50 + '\n'
-            err = p.stderr.read().strip().decode('utf-8')
-            if err:
-                feedback += err + '\n' + '-' * 50 + '\n'
+            subprocess.check_call([git_path, 'fetch', 'origin', '--no-tags'], cwd=d, stderr=subprocess.STDOUT)
+            subprocess.check_call([git_path, 'reset', '--hard', '@{upstream}'], cwd=d, stderr=subprocess.STDOUT)
+            feedback = ''
             dep_err, missing_pkgs = check_dependencies(d)
             if dep_err:
                 feedback += dep_err + '\n'
-            yield d, not p.wait(), feedback
+            yield d, True, feedback
 
     def update_all_repos(self):
         return self.update_repos(self.get_installed_plugin_repos().keys())
