@@ -187,6 +187,9 @@ BOT_IDENTITY = {
 # would be considered an admin if setting '*@localhost'.
 BOT_ADMINS = ('gbin@localhost',)
 
+# Set of admins that wish to receive administrative bot notifications.
+#BOT_ADMINS_NOTIFICATIONS = ()
+
 # Chatrooms your bot should join on startup. For the IRC backend you
 # should include the # sign here. For XMPP rooms that are password
 # protected, you can specify another tuple here instead of a string,
@@ -290,6 +293,11 @@ BOT_ADMINS = ('gbin@localhost',)
 # the command was given in a MUC. For example:
 # DIVERT_TO_PRIVATE = ('help', 'about', 'status')
 DIVERT_TO_PRIVATE = ()
+
+# A list of commands which should be responded to in a thread if the backend supports it.
+# For example:
+# DIVERT_TO_THREAD = ('help', 'about', 'status')
+DIVERT_TO_THREAD = ()
 
 # Chat relay
 # Can be used to relay one to one message from specific users to the bot

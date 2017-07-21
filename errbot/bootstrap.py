@@ -9,6 +9,7 @@ from errbot.repo_manager import BotRepoManager
 from errbot.specific_plugin_manager import SpecificPluginManager
 from errbot.storage.base import StoragePluginBase
 from errbot.utils import PLUGINS_SUBDIR
+from errbot.logs import format_logs
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ def bot_config_defaults(config):
         config.BOT_ALT_PREFIX_CASEINSENSITIVE = False
     if not hasattr(config, 'DIVERT_TO_PRIVATE'):
         config.DIVERT_TO_PRIVATE = ()
+    if not hasattr(config, 'DIVERT_TO_THREAD'):
+        config.DIVERT_TO_THREAD = ()
     if not hasattr(config, 'MESSAGE_SIZE_LIMIT'):
         config.MESSAGE_SIZE_LIMIT = 10000  # Corresponds with what HipChat accepts
     if not hasattr(config, 'GROUPCHAT_NICK_PREFIXED'):
@@ -66,6 +69,10 @@ def bot_config_defaults(config):
         config.TEXT_DEMO_MODE = True
     if not hasattr(config, 'BOT_ADMINS'):
         raise ValueError('BOT_ADMINS missing from config.py.')
+    if not hasattr(config, 'TEXT_COLOR_THEME'):
+        config.TEXT_COLOR_THEME = 'light'
+    if not hasattr(config, 'BOT_ADMINS_NOTIFICATIONS'):
+        config.BOT_ADMINS_NOTIFICATIONS = config.BOT_ADMINS
 
 
 def _init_sentry_client(dsn):
@@ -92,6 +99,8 @@ def setup_bot(backend_name, logger, config, restore=None):
     # config.py in the python path )
 
     bot_config_defaults(config)
+
+    format_logs(config.TEXT_COLOR_THEME)
 
     if config.BOT_LOG_FILE:
         hdlr = logging.FileHandler(config.BOT_LOG_FILE)
