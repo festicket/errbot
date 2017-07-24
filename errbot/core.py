@@ -140,7 +140,7 @@ class ErrBot(Backend, StoreMixin):
         if isinstance(identifier, Room) and in_reply_to and (nick_reply or groupchat_nick_reply):
             self.prefix_groupchat_reply(msg, in_reply_to.frm)
 
-        self.split_and_send_message(msg)
+        return self.split_and_send_message(msg)
 
     def send_templated(self, identifier, template_name, template_parameters, in_reply_to=None,
                        groupchat_nick_reply=False):
@@ -159,10 +159,12 @@ class ErrBot(Backend, StoreMixin):
         return self.send(identifier, text, in_reply_to, groupchat_nick_reply)
 
     def split_and_send_message(self, msg):
+        sent_messages = []
         for part in split_string_after(msg.body, self.bot_config.MESSAGE_SIZE_LIMIT):
             partial_message = msg.clone()
             partial_message.body = part
-            self.send_message(partial_message)
+            sent_messages.append(self.send_message(partial_message))
+        return sent_messages
 
     def send_message(self, msg):
         """
@@ -185,7 +187,7 @@ class ErrBot(Backend, StoreMixin):
         :param card: the card to send.
         :return: None
         """
-        self.send_templated(card.to, 'card', {'card': card})
+        return self.send_templated(card.to, 'card', {'card': card})
 
     def send_simple_reply(self, msg, text, private=False, threaded=False):
         """Send a simple response to a given incoming message
@@ -198,7 +200,7 @@ class ErrBot(Backend, StoreMixin):
         reply = self.build_reply(msg, text, private=private, threaded=threaded)
         if isinstance(reply.to, Room) and self.bot_config.GROUPCHAT_NICK_PREFIXED:
             self.prefix_groupchat_reply(reply, msg.frm)
-        self.split_and_send_message(reply)
+        return self.split_and_send_message(reply)
 
     def process_message(self, msg):
         """Check if the given message is a command for the bot and act on it.

@@ -668,6 +668,8 @@ class SlackBackend(ErrBot):
                 timestamps.append(result['ts'])
 
             msg.extras['ts'] = timestamps
+
+            return msg
         except Exception:
             log.exception(
                 "An exception occurred while trying to send the following message "

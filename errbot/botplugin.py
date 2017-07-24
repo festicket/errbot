@@ -561,7 +561,7 @@ class BotPlugin(BotPluginBase):
             if in_reply_to is None:
                 raise ValueError('Either to or in_reply_to needs to be set.')
             to = in_reply_to.frm
-        self._bot.send_card(Card(body, frm, to, in_reply_to, summary, title, link, image, thumbnail, color, fields))
+        return self._bot.send_card(Card(body, frm, to, in_reply_to, summary, title, link, image, thumbnail, color, fields))
 
     def change_presence(self, status: str = ONLINE, message: str = '') -> None:
         """
