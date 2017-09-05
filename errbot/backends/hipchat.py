@@ -6,7 +6,7 @@ import sys
 from functools import lru_cache
 
 from errbot.backends.base import Room, RoomDoesNotExistError, RoomOccupant
-from errbot.backends.xmpp import XMPPRoomOccupant, XMPPBackend, XMPPConnection
+from errbot.backends.xmpp import XMPPRoomOccupant, XMPPBackend, XMPPConnection, split_identifier
 
 from markdown import Markdown
 from markdown.extensions.extra import ExtraExtension
@@ -77,7 +77,7 @@ class HipChatRoomOccupant(XMPPRoomOccupant):
     https://www.hipchat.com/docs/apiv2/method/get_all_participants
     with the link to self expanded.
     """
-    def __init__(self, node=None, domain=None, resource=None, room=None, hipchat_user=None):
+    def __init__(self, node=None, domain=None, resource=None, room=None, hipchat_user=None, aclattr=None):
         """
         :param hipchat_user:
             A user object as returned by
@@ -94,7 +94,14 @@ class HipChatRoomOccupant(XMPPRoomOccupant):
                 node_domain = hipchat_user['xmpp_jid']
                 resource = hipchat_user['name']
             node, domain = node_domain.split('@')
+
+        self._aclattr = aclattr
+
         super().__init__(node, domain, resource, room)
+
+    @property
+    def aclattr(self):
+        return self._aclattr
 
 
 class HipChatRoom(Room):
@@ -404,6 +411,14 @@ class HipchatBackend(XMPPBackend):
             verify=self.api_verify,
         )
 
+    def _build_room_occupant(self, txtrep):
+        node, domain, resource = split_identifier(txtrep)
+        return self.roomoccupant_factory(node,
+                                         domain,
+                                         resource,
+                                         self.query_room(node + '@' + domain),
+                                         aclattr=self._find_user(resource, 'name'))
+
     def callback_message(self, msg):
         super().callback_message(msg)
         possible_mentions = re.findall(r'@\w+', msg.body)
@@ -480,7 +495,7 @@ class HipchatBackend(XMPPBackend):
         if not card.is_group:
             raise ValueError('Private notifications/cards are impossible to send on 1 to 1 messages on hipchat.')
         log.debug("room id = %s" % card.to)
-        room = self.conn.hypchat.get_room(str(card.to))
+        room = self.query_room(str(card.to)).room
 
         data = {'message': '-' if not card.body else self.md.convert(card.body),
                 'notify': False,
