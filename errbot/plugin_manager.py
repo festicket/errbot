@@ -516,8 +516,9 @@ class BotPluginManager(PluginManager, StoreMixin):
         for pluginInfo in self.getPluginsOfCategory(BOTPLUGIN_TAG):
             try:
                 if self.is_plugin_blacklisted(pluginInfo.name):
-                    errors += 'Notice: %s is blacklisted, use %splugin unblacklist %s to unblacklist it\n' % (
-                        pluginInfo.name, self.bot.prefix, pluginInfo.name)
+                    if pluginInfo.name != 'VersionChecker':  # Festicket admins are fed up with this plugin
+                        errors += 'Notice: %s is blacklisted, use %splugin unblacklist %s to unblacklist it\n' % (
+                            pluginInfo.name, self.bot.prefix, pluginInfo.name)
                     continue
                 if hasattr(pluginInfo, 'is_activated') and not pluginInfo.is_activated:
                     log.info('Activate plugin: %s' % pluginInfo.name)
